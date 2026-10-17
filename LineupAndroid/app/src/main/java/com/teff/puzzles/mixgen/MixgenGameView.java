@@ -45,7 +45,7 @@ final class MixgenGameView extends View implements Game.Listener, Sprites.Source
     private static final RectF BTN_EXIT    = new RectF(534, BAR_Y, 636, BAR_Y + BAR_H - 2);
     private static final RectF[] BUTTONS = {BTN_PLAY, BTN_NEW, BTN_BREED, BTN_OPTIONS, BTN_SCORES, BTN_EXIT};
 
-    private static final int TICK_MS = Game.TICK_MS;
+    private static final int TICK_MS = 10;
     private static final long TIP_MS = 8000;
 
     private final Game game;
@@ -113,7 +113,7 @@ final class MixgenGameView extends View implements Game.Listener, Sprites.Source
         try {
             sp = Sprites.load(this);
         } catch (IOException e) {
-            sp = new Sprites() {{ /* empty */ }};
+            sp = new Sprites();
         }
         sprites = sp;
 
@@ -129,7 +129,11 @@ final class MixgenGameView extends View implements Game.Listener, Sprites.Source
 
     @Override
     public InputStream open(int id) throws IOException {
-        return getContext().getAssets().open("mixgen/spr/" + id + ".bin");
+        try {
+            return getContext().getAssets().open("mixgen/spr/" + id + ".bin");
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     // ---- lifecycle ----------------------------------------------------------------------------
