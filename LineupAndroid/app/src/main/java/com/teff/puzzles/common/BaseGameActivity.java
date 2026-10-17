@@ -18,7 +18,8 @@ public abstract class BaseGameActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        hideSystemBars();
+        // hideSystemBars() is called in onWindowFocusChanged instead — calling it here
+        // crashes on API 37 because the DecorView is not yet attached to the window.
     }
 
     /** Leave this game and go back to the game menu. */
