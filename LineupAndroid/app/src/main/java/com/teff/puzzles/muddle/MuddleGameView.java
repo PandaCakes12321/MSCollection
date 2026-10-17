@@ -83,7 +83,7 @@ final class MuddleGameView extends View implements Game.Listener, Game.LevelSour
         game.difficulty = prefs.getInt("difficulty", Game.TRAINING);
         game.startLevel = prefs.getInt("startLevel", 1);
 
-        pad = new ControlPad();
+        pad = new ControlPad(null);
         pad.addArrows(460, 300, 56, true);
         pad.add(KeyEvent.KEYCODE_SPACE, 350, 328, 68, 28, "Move");
         pad.add(KeyEvent.KEYCODE_TAB,   350, 360, 68, 28, "Knock");

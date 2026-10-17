@@ -85,7 +85,7 @@ final class ColcGameView extends View implements Game.Listener {
         game.difficulty = prefs.getInt("difficulty", 1);
         game.startLevel  = prefs.getInt("startLevel", 1);
 
-        pad = new ControlPad();
+        pad = new ControlPad(null);
         pad.addArrows(8, 340, 54, true);
 
         text.setColor(Color.WHITE);

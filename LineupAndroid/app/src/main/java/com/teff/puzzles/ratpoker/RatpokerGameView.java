@@ -108,7 +108,7 @@ final class RatpokerGameView extends View implements Game.Listener {
         game.startLevel = prefs.getInt("startLevel", 1);
         game.difficulty  = prefs.getInt("difficulty", 1);
 
-        pad = new ControlPad();
+        pad = new ControlPad(null);
         // Left/right to switch arms; SPACE to trap/release; TAB to switch slots
         pad.add(KeyEvent.KEYCODE_DPAD_LEFT,  440, 300, 52, 40, "◀");
         pad.add(KeyEvent.KEYCODE_DPAD_RIGHT, 560, 300, 52, 40, "▶");
