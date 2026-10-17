@@ -1,3 +1,0 @@
-com.teff.lineup
-mipmap ic_launcher
-string app_name

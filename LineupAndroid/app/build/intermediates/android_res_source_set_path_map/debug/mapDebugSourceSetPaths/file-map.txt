@@ -1,8 +1,0 @@
-com.teff.lineup.app-pngs-0 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\build\generated\res\pngs\debug
-com.teff.lineup.app-updated_navigation_xml-1 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\build\generated\updated_navigation_xml\debug
-com.teff.lineup.app-packageDebugResources-2 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.teff.lineup.app-packageDebugResources-3 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.teff.lineup.app-debug-4 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\build\intermediates\merged_res\debug\mergeDebugResources
-com.teff.lineup.app-debug-5 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\src\debug\res
-com.teff.lineup.app-main-6 D:\Downloads\AIWORKSPACE\PuzzlePort\LineupAndroid\app\src\main\res
-gradleHome-0 C:\Users\Teff\.gradle
