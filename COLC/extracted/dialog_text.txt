@@ -1,0 +1,66 @@
+== rt_dialog\ABOUT
+About Color Collision | MS Sans Serif | Color Collision |  1997 Mir - Dialogue.  All rights reserved. | ;7d | &System Info | PV' | Product ID: | 000000000000000000000 | Portions  |  1997 Microsoft Corporation. All rights reserved. | Sound effects courtesy of Beachware, Inc. | Warning: This computer program is protected by copyright law and international treaties. | Unauthorized reproduction or distribution of this program, or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. | Microsoft |  Entertainment Pack: The Puzzle Collection |  1997 Beachware, Inc. All rights reserved.
+
+== rt_dialog\BALLSTOP
+.U< | High Scores for Color Collision | MS Sans Serif | Score | Name | 1234 | WWWWWWWWWWWWWWW | Text | Text | Text | I(o | Text | Text | I1o | Text | Text | I:o | Text | Text | ICo | Text | Text | ILo | Text | Text | IUo | Text | Text | I^o | Text | Text | Igo | Text | ;6e | &Reset
+
+== rt_dialog\EXITGAME
+Color Collision | MS Sans Serif | Cancel | This will end your Color Collision game.
+
+== rt_dialog\NEWGAME
+Color Collision | MS Sans Serif | Cancel | This will start a new Color Collision game.
+
+== rt_dialog\OPTIONS
+Color Collision Options | MS Sans Serif | Please enter your &name: | L$R | &Ask for player's name | L<N | &Background music | LJN | &Sound effects | Difficulty: | &Easy | &Medium | Ha&rd | &Crazy | F3[& | Start &level (1 - 10) : | msctls_updown32 | Spin2 | 95d | Cancel | &Help
+
+== rt_dialog\QHCONGRATULAT
+Congratulations! | MS Sans Serif | You finished the last level of Color Collision! For an added challenge, try collecting more bonuses or playing at a faster difficulty level!
+
+== rt_dialog\QHLEVELDIALOG01
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 1: Rainbow | Hit five circles of different colors to turn a set of the green balls into a bonus.
+
+== rt_dialog\QHLEVELDIALOG02
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 2: Be Happy! | Collect five smiling faces to get the bonus. Hit three circles with straight faces to equal one smiling face.
+
+== rt_dialog\QHLEVELDIALOG03
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 3: Hit Me! | Hit five circles while the object inside them is "on" or "open" to get the bonus.
+
+== rt_dialog\QHLEVELDIALOG04
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 4: Stop the Bomb | Hit five circles after the fuse is lit but before the bomb blows up to get the bonus.
+
+== rt_dialog\QHLEVELDIALOG05
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 5: Numbers | Each circle has a countdown starting at 7, 8, or 9 and ending at 0. Hit circles that add up to 25 to get the bonus.
+
+== rt_dialog\QHLEVELDIALOG06
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 6: Traffic Lights | Hit five circles when the light is green to get the bonus. Two yellow lights add up to one green. But don't hit a circle when the light is red, or it will turn into a stick.
+
+== rt_dialog\QHLEVELDIALOG07
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 7: Watch Out! | The faces change and then turn around so you see the backs of their heads. Don't hit the circles when you see the backs of the heads, or they will turn into sticks. Five smiles gets the bonus.
+
+== rt_dialog\QHLEVELDIALOG08
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 8: Card Suits | The circles randomly show the four card suits. Collect all four suits in a row without repeating a suit to get the bonus. 
+
+== rt_dialog\QHLEVELDIALOG09
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 9: Straights | The circles randomly show the 10, Jack, Queen, King, Ace, and Joker cards. Collect one of each without repeating a card to get the bonus. Joker is wild and replaces any card!
+
+== rt_dialog\QHLEVELDIALOG10
+Color Collision Tip | MS Sans Serif | &Stop Displaying Tips | Level 10: Yeralash | Yeralash is Russian for a mixture of everything. The circles have various items from previous levels. Collect a set from any level to get the bonus.
+
+== rt_dialog\QUICKHELPDIALOG
+Color Collision Quick Help | MS Sans Serif | &Skip Quick Help at Startup | v|- | More &Help | Objective  | Use the ARROW KEYS to make the color collider hit a circle rim or stick of the same color. When you hit the right circle, you collect the bonus inside. | Each time you hit a circle, one of the small green balls on the left column disappears. To move to the next level, get rid of all the balls. | How to play | Hit the wrong color circle and it turns into a stick. Hit the wrong color stick and you lose a life!
+
+== rt_dialog\RESETSCORE
+Color Collision | MS Sans Serif | Cancel | Are you sure you want to reset all the High Scores to zero?
+
+== rt_dialog\SYSTEMINFODIALOG
+System Information | MS Sans Serif | Windows Version: | Memory: | Disk Space: | Video Driver: | Video Info:
+
+== rt_dialog\YOURNAME
+Congratulations! | MS Sans Serif | S.Y | You beat a top 10 score! | 123456789 | U#M | Please type your name: | Your score is | ;7d
+
+== rt_menu\MAINMENU
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Play! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+
+== rt_menu\MAINMENUPLAYED
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Pause! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+

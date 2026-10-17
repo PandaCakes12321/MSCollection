@@ -1,0 +1,51 @@
+== rt_dialog\ABOUT
+About Lineup | MS Sans Serif | Lineup |  1997 Mir - Dialogue.  All rights reserved. | ;7d | &System Info | PV' | Product ID: | 000000000000000000000 | Portions  |  1997 Microsoft Corporation. All rights reserved. | Sound effects courtesy of Beachware, Inc. | Warning: This computer program is protected by copyright law and international treaties. | Unauthorized reproduction or distribution of this program, or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. | Microsoft |  Entertainment Pack: The Puzzle Collection |  1997 Beachware, Inc. All rights reserved.
+
+== rt_dialog\BALLSTOP
+.U< | High Scores for Lineup | MS Sans Serif | Score | Name | 1234 | WWWWWWWWWWWWWWW | Text | Text | Text | I(o | Text | Text | I1o | Text | Text | I:o | Text | Text | ICo | Text | Text | ILo | Text | Text | IUo | Text | Text | I^o | Text | Text | Igo | Text | ;6e | &Reset
+
+== rt_dialog\BONUSPOINTDIALOG
+Lineup Tip | MS Sans Serif | &Stop Displaying Tips | Surround the golf ball to get one bonus ball. You cannot get any more bonus balls until the golf ball is surrounded
+
+== rt_dialog\CLEARPOINTDIALOG
+Lineup Tip | MS Sans Serif | &Stop Displaying Tips | Surround the medal to completely clear the playing field.
+
+== rt_dialog\EXITGAME
+Lineup | MS Sans Serif | Cancel | This will end your Lineup game.
+
+== rt_dialog\GARBAGEPOINTDIALOG
+Lineup Tip | MS Sans Serif | &Stop Displaying Tips | The garbage can adds a dirt patch every time you remove a line from the field. Surround the figure to remove the garbage can. When you do, one dirt patch disappears, too. 
+
+== rt_dialog\NEWBONUSDIALOG
+Lineup Tip | MS Sans Serif | &Stop Displaying Tips | Bonus ball! Now you can rotate the bottom piece in the piece line, move a piece to the bottom of the piece line, or remove a piece from the field by clicking on it. Each of these actions costs you one bonus ball.
+
+== rt_dialog\NEWGAME
+Lineup | MS Sans Serif | Cancel | This will start a new Lineup game.
+
+== rt_dialog\OPTIONS
+Lineup Options | MS Sans Serif | Please enter your &name: | L$R | &Ask for player's name | L<N | &Background music | LJN | &Sound effects | Difficulty: | &Easy | &Medium | Ha&rd | &Crazy | F3[& | Start &level (1 - 10) : | msctls_updown32 | Spin2 | 95d | Cancel | &Help
+
+== rt_dialog\QUICKHELPDIALOG
+Lineup Quick Help | MS Sans Serif | &Skip Quick Help at Startup | More &Help | Objective  | Connect opposite sides of the field with a vertical or horizontal line of balls -- you can use different kinds of balls. When you complete a line, its pieces disappear. | The bottom box in the piece line shows the piece you must place. | How to play | To place a piece anywhere on the field, click where you want the white "center" ball to go. Work on connecting a line, not packing pieces. | The game ends if the piece line on the right fills up to the top!
+
+== rt_dialog\RESETSCORE
+Lineup | MS Sans Serif | Cancel | Are you sure you want to reset all the High Scores to zero?
+
+== rt_dialog\SCOREPOINTDIALOG
+Lineup Tip | MS Sans Serif | &Stop Displaying Tips | Surround the scorecard to earn points.
+
+== rt_dialog\SYSTEMINFODIALOG
+System Information | MS Sans Serif | Windows Version: | Memory: | Disk Space: | Video Driver: | Video Info:
+
+== rt_dialog\TIMEPOINTDIALOG
+Lineup Tip | MS Sans Serif | &Stop Displaying Tips | Surround the clock to temporarily stop the timer so no new pieces are added to the stack. 
+
+== rt_dialog\YOURNAME
+Congratulations! | MS Sans Serif | S.Y | You beat a top 10 score! | 123456789 | U#M | Please type your name: | Your score is | ;7d
+
+== rt_menu\MAINMENU
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Play! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+
+== rt_menu\MAINMENUPLAYED
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Pause! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+

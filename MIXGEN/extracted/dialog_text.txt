@@ -1,0 +1,42 @@
+== rt_dialog\ABOUT
+About Mixed Genetics | MS Sans Serif | Mixed Genetics |  1997 Mir - Dialogue.  All rights reserved. | ;7d | &System Info | PV' | Product ID: | 000000000000000000000 | Portions  |  1997 Microsoft Corporation. All rights reserved. | Sound effects courtesy of Beachware, Inc. | Warning: This computer program is protected by copyright law and international treaties. | Unauthorized reproduction or distribution of this program, or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. | Microsoft |  Entertainment Pack: The Puzzle Collection |  1997 Beachware, Inc. All rights reserved.
+
+== rt_dialog\BALLSTOP
+.U< | High Scores for Mixed Genetics | MS Sans Serif | Score | Name | 1234 | WWWWWWWWWWWWWWW | Text | Text | Text | I(o | Text | Text | I1o | Text | Text | I:o | Text | Text | ICo | Text | Text | ILo | Text | Text | IUo | Text | Text | I^o | Text | Text | Igo | Text | ;6e | &Reset
+
+== rt_dialog\EXITGAME
+Mixed Genetics | MS Sans Serif | Cancel | This will end your Mixed Genetics game.
+
+== rt_dialog\NEWGAME
+Mixed Genetics | MS Sans Serif | Cancel | This will start a new Mixed Genetics game.
+
+== rt_dialog\OPTIONS
+Mixed Genetics Options | MS Sans Serif | Please enter your &name: | Y$R | &Ask for player's name | Y<N | &Background music | YJN | &Sound effects | S4[# | SW[ | Va; | Start &level (1 - 16) : | msctls_updown32 | Spin2 | 95d | Cancel | &Help
+
+== rt_dialog\QHBOOKDIALOG
+Mixed Genetics Tip | MS Sans Serif | &Stop Displaying Tips | Use the Unmixed Genetics Guide to find out what pure offspring should look like.
+
+== rt_dialog\QHCONGRATULATE
+Congratulations! | MS Sans Serif | You beat Mixed Genetics!
+
+== rt_dialog\QHIDENTICALDIALOG
+Mixed Genetics Tip | MS Sans Serif | &Stop Displaying Tips | Identical animals cannot breed together.
+
+== rt_dialog\QUICKHELPDIALOG
+Mixed Genetics Quick Help | MS Sans Serif | &Skip Quick Help at Startup | More &Help | Objective  | Breed pure offspring from the mutant animals. Then rescue the pure offspring by putting them in the glass dome at the bottom of the screen. To move to the next level, rescue the number of animals on the beaker.  | Use the MOUSE to place 3 animals side by side in a tube. RIGHT-CLICK the middle animal to breed them. Identical animals cannot breed together. Offspring inherit any body parts that two or more parents have. | How to play | Animals can breed 3 times before they disappear. | Use the Unmixed Genetics Guide in the bottom left corner to see what pure offspring should look like. | Your game is over when there are too many animals in the waiting area.
+
+== rt_dialog\RESETSCORE
+Mixed Genetics | MS Sans Serif | Cancel | Are you sure you want to reset all the High Scores to zero?
+
+== rt_dialog\SYSTEMINFODIALOG
+System Information | MS Sans Serif | Windows Version: | Memory: | Disk Space: | Video Driver: | Video Info:
+
+== rt_dialog\YOURNAME
+Congratulations! | MS Sans Serif | S.Y | You beat a top 10 score! | 123456789 | U#M | Please type your name: | Your score is | ;7d
+
+== rt_menu\MAINMENU
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Play! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+
+== rt_menu\MAINMENUPLAYED
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Pause! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+

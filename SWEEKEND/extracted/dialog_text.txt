@@ -1,0 +1,33 @@
+== rt_dialog\ABOUT
+About Spring Weekend | MS Sans Serif | Spring Weekend |  1997 Mir - Dialogue.  All rights reserved. | ;7d | &System Info | PV' | Product ID: | 000000000000000000000 | Portions  |  1997 Microsoft Corporation. All rights reserved. | Sound effects courtesy of Beachware, Inc. | Warning: This computer program is protected by copyright law and international treaties. | Unauthorized reproduction or distribution of this program, or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. | Microsoft |  Entertainment Pack: The Puzzle Collection |  1997 Beachware, Inc. All rights reserved.
+
+== rt_dialog\BALLSTOP
+.U< | High Scores for Spring Weekend | MS Sans Serif | Score | Name | 1234 | WWWWWWWWWWWWWWW | Text | Text | Text | I(o | Text | Text | I1o | Text | Text | I:o | Text | Text | ICo | Text | Text | ILo | Text | Text | IUo | Text | Text | I^o | Text | Text | Igo | Text | ;6e | &Reset
+
+== rt_dialog\EXITGAME
+Spring Weekend | MS Sans Serif | Cancel | This will end your Spring Weekend game.
+
+== rt_dialog\NEWGAME
+Spring Weekend | MS Sans Serif | Cancel | This will start a new Spring Weekend game.
+
+== rt_dialog\OPTIONS
+Spring Weekend Options | MS Sans Serif | Please enter your &name: | L$R | &Ask for player's name | L<N | &Background music | LJN | &Sound effects | Game Mode: | T&raining | &Tournament | F3[& | Start &level (1 - 50) : | msctls_updown32 | Spin2 | 95d | Cancel | &Help
+
+== rt_dialog\QTIPLOSEDGAME
+Spring WeekendTip | MS Sans Serif | &Stop Displaying Tips | Next time, try Training mode, where you have unlimited moves (on the Game menu, click Options). There are no high scores in Training mode.
+
+== rt_dialog\QUICKHELPDIALOG
+Spring Weekend Quick Help | MS Sans Serif | &Skip Quick Help at Startup | ve- | More &Help | Objective  | Make the set of figures on the left look like the model on the right.  | Click a figure with the LEFT or RIGHT MOUSE BUTTON to rotate the ring of figures around it. | How to play | Complete a puzzle in 20 moves or less to move to the next level.
+
+== rt_dialog\RESETSCORE
+Spring Weekend | MS Sans Serif | Cancel | Are you sure you want to reset all the High Scores to zero?
+
+== rt_dialog\SYSTEMINFODIALOG
+System Information | MS Sans Serif | Windows Version: | Memory: | Disk Space: | Video Driver: | Video Info:
+
+== rt_dialog\YOURNAME
+Congratulations! | MS Sans Serif | S.Y | You beat a top 10 score! | 123456789 | U#M | Please type your name: | Your score is | ;7d
+
+== rt_menu\MAINMENU
+&Game | e&New  | h&Options... | f&High Scores... | gE&xit | &Reset! | &Help | &Contents  | &Quick Help... | Show Quick &Tips | &About...
+

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+
+        <activity
+            android:name=".MenuActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:exported="true"
+            android:screenOrientation="sensorLandscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- One activity per game. Each game lives in its own package and assets/<id>/ folder. -->
+        <activity android:name=".charmer.CharmerActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".colc.ColcActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".fflush.FflushActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".fringer.FringerActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".jewelch.JewelchActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".lineup.LineupActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".mixgen.MixgenActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".muddle.MuddleActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".ratpoker.RatpokerActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+        <activity android:name=".sweekend.SweekendActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+    </application>
+</manifest>
