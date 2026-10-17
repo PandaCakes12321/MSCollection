@@ -16,69 +16,64 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.teff.puzzles.common.ControlPad;
 import com.teff.puzzles.common.GameAudio;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
-/**
- * Draws Color Collision on a 600×520 logical canvas (600×400 field + 120px button bar).
- * Each arrow key press nudges the collider's velocity in that direction.
- */
+/** Color Collision game view. 640×430 logical canvas, letterboxed. */
 final class ColcGameView extends View implements Game.Listener {
 
-    // Logical layout
-    private static final int W = 600, H = 520;
-    private static final int FIELD_TOP = 0, FIELD_H = 400;
-    private static final int BAR_Y = 405, BAR_H = 44, BAR_PAD = 6;
-    private static final int FRAME_MS = 50;
+    private static final int W = 640, H = 430;
+    private static final int BAR_Y = 400, BAR_H = 30;
+    private static final int FIELD_OX = 20, FIELD_OY = 15; // field offset inside canvas
+    private static final int TICK_MS = 100;
 
-    // Button indices
-    private static final int B_PLAY = 0, B_NEW = 1, B_HELP = 2, B_EXIT = 3;
-    private static final String[] BUTTONS = {"Play", "New", "Help", "Exit"};
+    // Circle colours (index 0-5)
+    private static final int[] COLORS = {
+        0xFFE04040, 0xFF4060E0, 0xFF30B030, 0xFFD0C020, 0xFFB030C0, 0xFF20C0C0
+    };
 
-    // On-screen arrow zones (bottom-right quadrant of field)
-    private static final int ARROW_SIZE = 56;
-    private static final int AX = W - ARROW_SIZE * 3 - 8, AY = FIELD_H - ARROW_SIZE * 3 - 8;
+    private static final RectF BTN_PLAY    = new RectF(4,   BAR_Y, 100, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_NEW     = new RectF(104, BAR_Y, 200, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_OPTIONS = new RectF(204, BAR_Y, 330, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_SCORES  = new RectF(334, BAR_Y, 430, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_EXIT    = new RectF(504, BAR_Y, 636, BAR_Y + BAR_H - 2);
+    private static final RectF[] BUTTONS   = {BTN_PLAY, BTN_NEW, BTN_OPTIONS, BTN_SCORES, BTN_EXIT};
 
-    // Sprite IDs: 1000-1005 = collider ball per colour; 1007-1036 = circle rings (colour*5+size)
-    private static final int SPR_BALL_BASE  = 1000;
-    private static final int SPR_RING_BASE  = 1007;   // size 0 = 132px, the largest
-    private static final int SPR_RING_SIZES = 5;
-
-    final Game game = new Game();
+    private final Game game = new Game();
     private final GameAudio audio;
     private final SharedPreferences prefs;
     private final Map<String, Bitmap> images = new HashMap<>();
-    private final Paint paint   = new Paint(Paint.FILTER_BITMAP_FLAG);
-    private final Paint fill    = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint textP   = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint fill  = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint text  = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final ControlPad pad;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final RectF dst = new RectF();
 
     private float scale = 1f, offsetX, offsetY;
+    private long lastTick;
     private boolean running;
-    private long lastFrame;
-    private int song;
-
-    // Colour table matching the 6 sprite colour groups (R, orange, yellow, G, B, purple)
-    private static final int[] COLORS = {
-        0xFFE03030, 0xFFE08020, 0xFFD0C020, 0xFF30C030, 0xFF3090E0, 0xFFA040E0
-    };
-
-    private String tip;
+    private RectF pressed;
 
     private final Runnable loop = new Runnable() {
         @Override public void run() {
             long now = SystemClock.uptimeMillis();
-            int ms = (int) Math.min(500, now - lastFrame);
-            lastFrame = now;
-            if (tip == null) game.tick(ms);
+            int ms = (int) Math.min(now - lastTick, 200);
+            lastTick = now;
+            if (game.state == Game.State.PLAYING) {
+                // feed ControlPad keys
+                if (pad.isDown(KeyEvent.KEYCODE_DPAD_LEFT))  game.pressKey(KeyEvent.KEYCODE_DPAD_LEFT);
+                if (pad.isDown(KeyEvent.KEYCODE_DPAD_RIGHT)) game.pressKey(KeyEvent.KEYCODE_DPAD_RIGHT);
+                if (pad.isDown(KeyEvent.KEYCODE_DPAD_UP))    game.pressKey(KeyEvent.KEYCODE_DPAD_UP);
+                if (pad.isDown(KeyEvent.KEYCODE_DPAD_DOWN))  game.pressKey(KeyEvent.KEYCODE_DPAD_DOWN);
+                game.tick(ms);
+            }
             invalidate();
-            handler.postDelayed(this, FRAME_MS);
+            handler.postDelayed(this, TICK_MS);
         }
     };
 
@@ -87,368 +82,275 @@ final class ColcGameView extends View implements Game.Listener {
         prefs = context.getSharedPreferences("colc", Context.MODE_PRIVATE);
         audio = new GameAudio(context, "colc");
         game.listener = this;
-        textP.setColor(Color.WHITE);
-        textP.setTextSize(18f);
-        loadOptions();
-        setFocusable(true);
-        setFocusableInTouchMode(true);
+        game.difficulty = prefs.getInt("difficulty", 1);
+        game.startLevel  = prefs.getInt("startLevel", 1);
+
+        pad = new ControlPad();
+        pad.addArrows(8, 340, 54, true);
+
+        text.setColor(Color.WHITE);
+        text.setTextSize(13);
     }
 
-    // ---- lifecycle ---------------------------------------------------------------------------
+    // ---- lifecycle ----------------------------------------------------------------------------
 
     void onHostResume() {
         if (!running) {
             running = true;
-            lastFrame = SystemClock.uptimeMillis();
+            lastTick = SystemClock.uptimeMillis();
             handler.post(loop);
         }
+        if (audio.musicOn) audio.startMusic("MIDIGAME1", "MIDIGAME2", "MIDIGAME3");
     }
 
     void onHostPause() {
-        pauseGame();
+        if (game.state == Game.State.PLAYING) game.state = Game.State.PAUSED;
+        audio.pauseMusic();
         running = false;
         handler.removeCallbacks(loop);
     }
 
     void release() {
-        handler.removeCallbacks(loop);
+        handler.removeCallbacksAndMessages(null);
         audio.release();
     }
 
-    void loadOptions() {
-        game.difficulty  = prefs.getInt("difficulty", 1);
-        game.startLevel  = prefs.getInt("startLevel", 1);
-        audio.musicOn    = prefs.getBoolean("music", true);
-        audio.soundOn    = prefs.getBoolean("sound", true);
-    }
-
-    void startNewGame() {
-        loadOptions();
-        game.newGame();
-        song ^= 1;
-        audio.startMusic("MIDIGAME" + (song + 1));
-        invalidate();
-    }
-
-    private void pauseGame() {
-        if (game.state == Game.State.PLAYING) {
-            game.state = Game.State.PAUSED;
-            audio.pauseMusic();
-            invalidate();
-        }
-    }
-
-    private void resumeGame() {
-        if (game.state == Game.State.PAUSED) {
-            game.state = Game.State.PLAYING;
-            audio.resumeMusic();
-            invalidate();
-        }
-    }
-
-    // ---- Game.Listener -----------------------------------------------------------------------
+    // ---- Game.Listener ------------------------------------------------------------------------
 
     @Override public void sound(int id) { audio.play(String.valueOf(id)); }
-
-    @Override public void tip(int kind) {
-        // tips not shown this build
-    }
-
+    @Override public void tip(int kind) { /* no-op for now */ }
     @Override public void levelDone(int score) {
-        tip = "Level " + game.level + " done!  Score: " + score + "\n\nTap Play to continue.";
+        handler.postDelayed(() -> game.nextLevel(), 1200);
     }
-
     @Override public void gameOver(int score) {
-        audio.stopMusic();
-        tip = "Game Over\n\nFinal score: " + score + "\n\nTap Play to play again.";
+        int best = prefs.getInt("best", 0);
+        if (score > best) prefs.edit().putInt("best", score).apply();
     }
 
-    // ---- drawing -----------------------------------------------------------------------------
+    // ---- layout -------------------------------------------------------------------------------
 
     @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        scale   = Math.min(w / (float) W, h / (float) H);
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        scale = Math.min(w / (float) W, h / (float) H);
         offsetX = (w - W * scale) / 2f;
         offsetY = (h - H * scale) / 2f;
     }
 
+    // ---- drawing ------------------------------------------------------------------------------
+
     @Override
     protected void onDraw(Canvas canvas) {
-        canvas.drawColor(0xFF101010);
+        canvas.drawColor(0xFF0A1A28);
         canvas.save();
         canvas.translate(offsetX, offsetY);
         canvas.scale(scale, scale);
 
-        drawField(canvas);
-        drawCircles(canvas);
-        drawBall(canvas);
-        drawHUD(canvas);
-        drawArrows(canvas);
-        drawButtons(canvas);
+        switch (game.state) {
+            case TITLE:
+                drawImg(canvas, "TITLEBMP", 0, 0);
+                drawCenteredText(canvas, "Tap to play", W / 2f, H / 2f);
+                break;
+            case OVER:
+                drawField(canvas);
+                drawImg(canvas, "GAMEOVERBMP", (W - 200) / 2f, 120);
+                break;
+            default:
+                drawField(canvas);
+                break;
+        }
 
-        if (game.state == Game.State.PAUSED)  drawOverlay(canvas, "PAUSED");
-        if (game.state == Game.State.TITLE)   drawOverlay(canvas, "Tap Play to start");
-        if (tip != null)                      drawTip(canvas);
-
+        drawButtonBar(canvas);
         canvas.restore();
     }
 
     private void drawField(Canvas canvas) {
-        // Background: use LEVEL0N.png for current level
-        String bg = "LEVEL" + String.format(Locale.US, "%02d", Math.max(1, Math.min(10, game.level)));
-        Bitmap b = imgAsset("colc/img/" + bg + ".png");
-        if (b != null) {
-            dst.set(0, 0, W, FIELD_H);
-            canvas.drawBitmap(b, null, dst, paint);
+        // Level background
+        String bg = "LEVEL" + String.format("%02d", ((game.level - 1) % 10) + 1);
+        Bitmap bgBmp = img(bg);
+        if (bgBmp != null) {
+            canvas.drawBitmap(bgBmp, FIELD_OX, FIELD_OY, paint);
         } else {
-            fill.setColor(0xFF1A1A40);
-            canvas.drawRect(0, 0, W, FIELD_H, fill);
+            fill.setColor(0xFF0A2040);
+            canvas.drawRect(FIELD_OX, FIELD_OY, FIELD_OX + Game.FIELD_W, FIELD_OY + Game.FIELD_H, fill);
         }
-    }
 
-    private void drawCircles(Canvas canvas) {
+        // Circles
         for (Game.Circle c : game.circles) {
             if (c.state == Game.CS_GONE) continue;
-            if (c.state == Game.CS_FLASH) {
-                // Draw flashing white ring
-                fill.setColor(0x80FFFFFF);
-                canvas.drawCircle(c.x, c.y, Game.CIRCLE_R, fill);
-                continue;
-            }
-            int sprId = SPR_RING_BASE + c.color * SPR_RING_SIZES;
-            Bitmap b = spriteImg(sprId);
-            if (b != null) {
-                float hw = b.getWidth() / 2f, hh = b.getHeight() / 2f;
-                dst.set(c.x - hw, c.y - hh, c.x + hw, c.y + hh);
-                if (c.state == Game.CS_STICK) {
-                    // Tint grey to show it's a stick
-                    paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(
-                            new android.graphics.ColorMatrix(new float[]{
-                                    0.4f,0.4f,0.4f,0,0,
-                                    0.4f,0.4f,0.4f,0,0,
-                                    0.4f,0.4f,0.4f,0,0,
-                                    0,0,0,1,0})));
-                    canvas.drawBitmap(b, null, dst, paint);
-                    paint.setColorFilter(null);
-                } else {
-                    canvas.drawBitmap(b, null, dst, paint);
-                }
-            } else {
-                // Fallback: coloured ring using Paint
+            int col = COLORS[c.color % COLORS.length];
+            float cx = FIELD_OX + c.x, cy = FIELD_OY + c.y;
+            if (c.state == Game.CS_STICK) {
+                fill.setColor(col);
+                fill.setStyle(Paint.Style.FILL);
+                canvas.drawRect(cx - 8, cy - Game.CIRCLE_R, cx + 8, cy + Game.CIRCLE_R, fill);
+                fill.setColor(0xFFFFFFFF);
                 fill.setStyle(Paint.Style.STROKE);
-                fill.setStrokeWidth(8);
-                fill.setColor(c.state == Game.CS_STICK ? 0xFF808080 : COLORS[c.color]);
-                canvas.drawCircle(c.x, c.y, Game.CIRCLE_R, fill);
+                fill.setStrokeWidth(2);
+                canvas.drawRect(cx - 8, cy - Game.CIRCLE_R, cx + 8, cy + Game.CIRCLE_R, fill);
+                fill.setStyle(Paint.Style.FILL);
+            } else if (c.state == Game.CS_FLASH) {
+                fill.setColor(0xFFFFFFFF);
+                canvas.drawCircle(cx, cy, Game.CIRCLE_R + 4, fill);
+            } else {
+                fill.setColor(col);
+                canvas.drawCircle(cx, cy, Game.CIRCLE_R, fill);
+                fill.setColor(0xA0FFFFFF);
+                fill.setStyle(Paint.Style.STROKE);
+                fill.setStrokeWidth(2);
+                canvas.drawCircle(cx, cy, Game.CIRCLE_R, fill);
                 fill.setStyle(Paint.Style.FILL);
             }
         }
-    }
 
-    private void drawBall(Canvas canvas) {
-        if (game.state == Game.State.TITLE) return;
-        int sprId = SPR_BALL_BASE + game.ballColor;
-        Bitmap b = spriteImg(sprId);
-        if (b != null) {
-            float hw = b.getWidth() / 2f, hh = b.getHeight() / 2f;
-            dst.set(game.bx - hw, game.by - hh, game.bx + hw, game.by + hh);
-            canvas.drawBitmap(b, null, dst, paint);
-        } else {
-            fill.setColor(COLORS[game.ballColor]);
-            canvas.drawCircle(game.bx, game.by, Game.BALL_R, fill);
-        }
-    }
-
-    private void drawHUD(Canvas canvas) {
-        // Dark strip at bottom of field for score/lives/level
-        fill.setColor(0xCC000000);
-        canvas.drawRect(0, FIELD_H - 30, W, FIELD_H, fill);
-
-        textP.setTextSize(18f);
-        textP.setColor(Color.WHITE);
-        canvas.drawText("Score: " + game.score, 10, FIELD_H - 10, textP);
-        canvas.drawText("Level: " + game.level, 220, FIELD_H - 10, textP);
-        StringBuilder lives = new StringBuilder("Lives: ");
-        for (int i = 0; i < game.lives; i++) lives.append('●');
-        canvas.drawText(lives.toString(), 430, FIELD_H - 10, textP);
-    }
-
-    private void drawArrows(Canvas canvas) {
-        if (game.state != Game.State.PLAYING) return;
-        int s = ARROW_SIZE;
-        int[][] defs = {
-                {s, 0, s, Game.KEY_UP,    "▲"},    // up
-                {0, s, s, Game.KEY_LEFT,  "◄"},    // left
-                {s*2,s, s, Game.KEY_RIGHT,"►"},    // right
-                {s, s*2,s, Game.KEY_DOWN, "▼"},    // down
-        };
-        for (int[] d : defs) {
-            float x = AX + d[0], y = AY + d[1];
-            fill.setColor(0x80203060);
-            canvas.drawRoundRect(x, y, x + s, y + s, 8, 8, fill);
-            textP.setTextSize(22f);
-            textP.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText(d[4], x + s / 2f, y + s / 2f + 8, textP);
-            textP.setTextAlign(Paint.Align.LEFT);
-        }
-    }
-
-    private void drawButtons(Canvas canvas) {
-        float bw = (W - BAR_PAD * 2f) / BUTTONS.length;
-        textP.setTextSize(16f);
-        textP.setFakeBoldText(true);
-        for (int i = 0; i < BUTTONS.length; i++) {
-            float x = BAR_PAD + i * bw;
-            fill.setColor(0xFF1C4C8C);
-            canvas.drawRoundRect(x + 2, BAR_Y, x + bw - 2, BAR_Y + BAR_H, 8, 8, fill);
-            String label = BUTTONS[i];
-            if (i == B_PLAY && game.state == Game.State.PLAYING) label = "Pause";
-            textP.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText(label, x + bw / 2f, BAR_Y + BAR_H / 2f + 6, textP);
-            textP.setTextAlign(Paint.Align.LEFT);
-        }
-        textP.setFakeBoldText(false);
-    }
-
-    private void drawOverlay(Canvas canvas, String msg) {
-        fill.setColor(0xC0000000);
-        canvas.drawRect(0, 0, W, FIELD_H, fill);
-        Bitmap b = (game.state == Game.State.PAUSED) ? imgAsset("colc/img/PAUSEBMP.png")
-                : imgAsset("colc/img/TITLEBMP.png");
-        if (b != null) {
-            float x = (W - b.getWidth()) / 2f, y = (FIELD_H - b.getHeight()) / 2f;
-            canvas.drawBitmap(b, x, y, paint);
-        } else {
-            textP.setTextSize(36f);
-            textP.setTextAlign(Paint.Align.CENTER);
-            textP.setColor(Color.WHITE);
-            canvas.drawText(msg, W / 2f, FIELD_H / 2f, textP);
-            textP.setTextAlign(Paint.Align.LEFT);
-        }
-    }
-
-    private void drawTip(Canvas canvas) {
-        if (tip == null) return;
-        fill.setColor(0xF0102040);
-        canvas.drawRoundRect(40, 80, W - 40, FIELD_H - 80, 14, 14, fill);
+        // Ball
+        float bx = FIELD_OX + game.bx, by = FIELD_OY + game.by;
+        int bcol = COLORS[game.ballColor % COLORS.length];
+        fill.setColor(bcol);
+        canvas.drawCircle(bx, by, Game.BALL_R, fill);
+        fill.setColor(0xFFFFFFFF);
         fill.setStyle(Paint.Style.STROKE);
         fill.setStrokeWidth(2);
-        fill.setColor(0xFF7FB2FF);
-        canvas.drawRoundRect(40, 80, W - 40, FIELD_H - 80, 14, 14, fill);
+        canvas.drawCircle(bx, by, Game.BALL_R, fill);
         fill.setStyle(Paint.Style.FILL);
-        textP.setColor(Color.WHITE);
-        textP.setTextSize(18f);
-        float y = 120;
-        for (String line : tip.split("\n", -1)) {
-            canvas.drawText(line, 60, y, textP);
-            y += 26;
+
+        // HUD
+        text.setTextSize(13);
+        text.setColor(Color.WHITE);
+        canvas.drawText("Score: " + game.score, 8, 12, text);
+        canvas.drawText("Level: " + game.level, 180, 12, text);
+        canvas.drawText("Lives: " + game.lives, 340, 12, text);
+        canvas.drawText("Balls: " + game.greenBalls, 500, 12, text);
+
+        if (game.state == Game.State.PAUSED) drawCenteredText(canvas, "Paused", W / 2f, H / 2f - 20);
+        if (game.state == Game.State.LEVEL_DONE) drawCenteredText(canvas, "Level done!", W / 2f, H / 2f - 20);
+
+        // ControlPad
+        pad.draw(canvas);
+    }
+
+    private void drawButtonBar(Canvas canvas) {
+        fill.setColor(0xFF0A1A28);
+        canvas.drawRect(0, BAR_Y - 2, W, H, fill);
+        String play = game.state == Game.State.PLAYING ? "Pause" : "Play";
+        drawBtn(canvas, BTN_PLAY, play);
+        drawBtn(canvas, BTN_NEW, "New");
+        drawBtn(canvas, BTN_OPTIONS, "Options");
+        drawBtn(canvas, BTN_SCORES, "Scores");
+        drawBtn(canvas, BTN_EXIT, "Exit");
+    }
+
+    private void drawBtn(Canvas canvas, RectF r, String label) {
+        fill.setColor(pressed == r ? 0xFF4080A0 : 0xFF204060);
+        canvas.drawRoundRect(r, 6, 6, fill);
+        text.setTextSize(12);
+        text.setColor(Color.WHITE);
+        float tw = text.measureText(label);
+        canvas.drawText(label, r.centerX() - tw / 2, r.centerY() + 5, text);
+    }
+
+    private void drawCenteredText(Canvas canvas, String s, float cx, float cy) {
+        text.setTextSize(22);
+        text.setColor(Color.WHITE);
+        fill.setColor(0xA0000020);
+        float tw = text.measureText(s);
+        canvas.drawRect(cx - tw / 2 - 8, cy - 18, cx + tw / 2 + 8, cy + 8, fill);
+        canvas.drawText(s, cx - tw / 2, cy, text);
+    }
+
+    private Bitmap img(String name) {
+        if (!images.containsKey(name)) {
+            Bitmap b = null;
+            try (InputStream in = getContext().getAssets().open("colc/img/" + name + ".png")) {
+                b = BitmapFactory.decodeStream(in);
+            } catch (IOException ignored) {}
+            images.put(name, b);
         }
-        textP.setTextSize(14f);
-        textP.setColor(0xFFAAAAAA);
-        canvas.drawText("(Tap to continue)", 60, FIELD_H - 98, textP);
-        textP.setColor(Color.WHITE);
+        return images.get(name);
     }
 
-    // ---- assets ------------------------------------------------------------------------------
-
-    private Bitmap spriteImg(int id) {
-        return imgAsset("colc/spr/" + id + ".png");
+    private void drawImg(Canvas canvas, String name, float x, float y) {
+        Bitmap b = img(name);
+        if (b != null) canvas.drawBitmap(b, x, y, paint);
     }
 
-    private Bitmap imgAsset(String path) {
-        if (images.containsKey(path)) return images.get(path);
-        BitmapFactory.Options o = new BitmapFactory.Options();
-        o.inScaled = false;
-        Bitmap b = null;
-        try (InputStream in = getContext().getAssets().open(path)) {
-            b = BitmapFactory.decodeStream(in, null, o);
-        } catch (IOException ignored) {}
-        images.put(path, b);
-        return b;
-    }
-
-    // ---- input -------------------------------------------------------------------------------
+    // ---- touch --------------------------------------------------------------------------------
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        if (e.getActionMasked() != MotionEvent.ACTION_DOWN) return true;
         float lx = (e.getX() - offsetX) / scale;
         float ly = (e.getY() - offsetY) / scale;
-
-        if (tip != null) { tip = null; invalidate(); return true; }
-
-        // Arrow pad
-        if (game.state == Game.State.PLAYING && ly < FIELD_H) {
-            int key = arrowAt(lx, ly);
-            if (key != -1) { game.pressKey(key); invalidate(); return true; }
-        }
-
-        // Button bar
-        if (ly >= BAR_Y && ly < BAR_Y + BAR_H) {
-            float bw = (W - BAR_PAD * 2f) / BUTTONS.length;
-            int b = (int) ((lx - BAR_PAD) / bw);
-            if (b >= 0 && b < BUTTONS.length) {
-                pressButton(b);
-                performClick();
+        pad.onTouch(e, offsetX, offsetY, scale);
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                pressed = btnAt(lx, ly);
+                invalidate();
                 return true;
-            }
+            case MotionEvent.ACTION_UP:
+                if (pressed != null && pressed == btnAt(lx, ly)) {
+                    performClick();
+                    pressBtn(pressed);
+                }
+                pressed = null;
+                invalidate();
+                return true;
+            case MotionEvent.ACTION_CANCEL:
+                pressed = null;
+                invalidate();
+                return true;
+            default: return true;
         }
-        return true;
     }
 
     @Override public boolean performClick() { return super.performClick(); }
 
-    private int arrowAt(float x, float y) {
-        int s = ARROW_SIZE;
-        int[][] defs = {
-                {s, 0, s, Game.KEY_UP},
-                {0, s, s, Game.KEY_LEFT},
-                {s*2, s, s, Game.KEY_RIGHT},
-                {s, s*2, s, Game.KEY_DOWN},
-        };
-        for (int[] d : defs) {
-            float bx = AX + d[0], by = AY + d[1];
-            if (x >= bx && x < bx + d[2] && y >= by && y < by + d[2]) return d[3];
-        }
-        return -1;
+    private RectF btnAt(float x, float y) {
+        for (RectF r : BUTTONS) if (r.contains(x, y)) return r;
+        return null;
     }
 
-    private void pressButton(int b) {
-        ColcActivity act = (ColcActivity) getContext();
-        switch (b) {
-            case B_PLAY:
-                if (game.state == Game.State.PLAYING) pauseGame();
-                else if (game.state == Game.State.PAUSED) resumeGame();
-                else startNewGame();
-                break;
-            case B_NEW:
-                if (game.state == Game.State.PLAYING || game.state == Game.State.PAUSED) {
-                    pauseGame();
-                    new AlertDialog.Builder(act)
-                            .setTitle("Color Collision")
-                            .setMessage("Start a new game?")
-                            .setPositiveButton("OK",     (d, w) -> startNewGame())
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                } else { startNewGame(); }
-                break;
-            case B_HELP:
-                pauseGame();
-                Bitmap hb = imgAsset("colc/img/QUICKHELPBMP.png");
-                if (hb != null) {
-                    tip = "Hit circles that match the collider colour.\n"
-                        + "Wrong colour turns a circle into a stick.\n"
-                        + "Hitting a wrong-colour stick costs a life.\n"
-                        + "Use arrows (or hardware keys) to steer.\n"
-                        + "Collect all circles to complete the level.";
-                } else {
-                    tip = "Hit same-colour circles to collect them.\nWrong colour = stick, stick hit = lose life.";
-                }
-                break;
-            case B_EXIT:
-                pauseGame();
-                act.exitToMenu();
-                break;
+    private void pressBtn(RectF btn) {
+        if (btn == BTN_PLAY) {
+            switch (game.state) {
+                case PLAYING: game.state = Game.State.PAUSED; break;
+                case PAUSED:  game.state = Game.State.PLAYING; break;
+                default:      startNewGame(); break;
+            }
+        } else if (btn == BTN_NEW) {
+            startNewGame();
+        } else if (btn == BTN_OPTIONS) {
+            if (game.state == Game.State.PLAYING) game.state = Game.State.PAUSED;
+            showOptions();
+        } else if (btn == BTN_SCORES) {
+            showScores();
+        } else if (btn == BTN_EXIT) {
+            ((ColcActivity) getContext()).exitToMenu();
         }
-        invalidate();
+    }
+
+    private void startNewGame() {
+        game.difficulty = prefs.getInt("difficulty", 1);
+        game.startLevel  = prefs.getInt("startLevel", 1);
+        game.newGame();
+    }
+
+    private void showOptions() {
+        String[] diffs = {"Easy", "Medium", "Hard", "Crazy"};
+        int cur = game.difficulty - 1;
+        new AlertDialog.Builder(getContext())
+                .setTitle("Difficulty")
+                .setSingleChoiceItems(diffs, cur, (d, w) -> {
+                    prefs.edit().putInt("difficulty", w + 1).apply();
+                    game.difficulty = w + 1;
+                })
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void showScores() {
+        new AlertDialog.Builder(getContext())
+                .setTitle("Color Collision — Best Score")
+                .setMessage("Your best: " + prefs.getInt("best", 0))
+                .setPositiveButton("OK", null)
+                .show();
     }
 }

@@ -99,7 +99,7 @@ final class Game {
     private int tickMs;
     private int spawnTimer;
     private int numColors;
-    private int rescueTarget;
+    int rescueTarget;         // read by GameView for HUD
     private int maxInfestation;
     private boolean hasMinusPlus;
     private boolean whiteWild;
