@@ -6,12 +6,12 @@ import com.teff.puzzles.common.BaseGameActivity;
 
 /** Rat Poker (Microsoft Puzzle Collection, 1997). */
 public class RatpokerActivity extends BaseGameActivity {
-    private GameView view;
+    private RatpokerGameView view;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        view = new GameView(this);
+        view = new RatpokerGameView(this);
         setContentView(view);
     }
 
