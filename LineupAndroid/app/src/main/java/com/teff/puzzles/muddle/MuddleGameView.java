@@ -2,16 +2,15 @@ package com.teff.puzzles.muddle;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,436 +20,400 @@ import com.teff.puzzles.common.GameAudio;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
-/** Muddled Casino game view, 628×404 table + button bar scaled to fit the screen. */
-final class MuddleGameView extends View implements Game.Listener, ControlPad.Listener {
+/**
+ * Muddled Casino game view.  640×430 logical canvas, 40×32 cells for the 14×10 board.
+ * Arrow keys select a group direction; SPACE moves, TAB knocks off.
+ */
+final class MuddleGameView extends View implements Game.Listener, Game.LevelSource {
 
-    // Logical dimensions: table background + bottom button strip
-    private static final int W = 628, H = 470;
-    private static final int TABLE_H = 404;
-    private static final int BAR_Y = TABLE_H + 4, BAR_H = 52;
+    private static final int W = 640, H = 430;
+    private static final int BAR_Y = 400, BAR_H = 30;
+    private static final int TICK_MS = 50;
 
-    // Board cell geometry (from decompile: col*35+44, row 0 at bottom)
-    private static final int CELL = 35;
-    private static final int BX = 44;   // board x origin
-    private static final int BY = 44;   // board y origin (row 9 at top)
+    // Board layout
+    private static final int CELL_W = 40, CELL_H = 30;
+    private static final int BOARD_OX = 20, BOARD_OY = 52;
 
-    // Feature sprite frame width (featurespr 104px / 4 frames = 26px each)
-    private static final int FEAT_FW = 26, FEAT_FH = 35;
+    // Card face labels and colors
+    private static final String[] CARD_LABEL = {"","♠","♣","♦","♥","■","▪","◆","●"};
+    private static final int[] CARD_COLOR = {0,
+        0xFF303030, 0xFF303030, 0xFFCC2020, 0xFFCC2020,
+        0xFF303030, 0xFF303030, 0xFFCC2020, 0xFFCC2020
+    };
 
-    // Button strip layout
-    private static final RectF BTN_NEW   = new RectF(4,   BAR_Y, 120, BAR_Y + BAR_H - 2);
-    private static final RectF BTN_RESET = new RectF(124, BAR_Y, 240, BAR_Y + BAR_H - 2);
-    private static final RectF BTN_BET1  = new RectF(260, BAR_Y, 310, BAR_Y + BAR_H - 2);
-    private static final RectF BTN_BET2  = new RectF(314, BAR_Y, 364, BAR_Y + BAR_H - 2);
-    private static final RectF BTN_BET3  = new RectF(368, BAR_Y, 418, BAR_Y + BAR_H - 2);
-    private static final RectF BTN_BET4  = new RectF(422, BAR_Y, 472, BAR_Y + BAR_H - 2);
-    private static final RectF BTN_EXIT  = new RectF(500, BAR_Y, 624, BAR_Y + BAR_H - 2);
-
-    private static final long TICK_MS = 50;
-    private static final float KEY = 60;   // control-pad key size
-
-    // Scale / offset for letterbox
-    private float scale = 1f, ox, oy;
+    private static final RectF BTN_PLAY    = new RectF(4,   BAR_Y, 80,  BAR_Y + BAR_H - 2);
+    private static final RectF BTN_NEW     = new RectF(84,  BAR_Y, 160, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_RESET   = new RectF(164, BAR_Y, 240, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_OPTIONS = new RectF(244, BAR_Y, 340, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_SCORES  = new RectF(344, BAR_Y, 440, BAR_Y + BAR_H - 2);
+    private static final RectF BTN_EXIT    = new RectF(540, BAR_Y, 636, BAR_Y + BAR_H - 2);
+    private static final RectF[] BUTTONS   = {BTN_PLAY, BTN_NEW, BTN_RESET, BTN_OPTIONS, BTN_SCORES, BTN_EXIT};
 
     private final Game game = new Game();
     private final GameAudio audio;
+    private final SharedPreferences prefs;
+    private final Map<String, Bitmap> images = new HashMap<>();
+    private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint fill  = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tp    = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ControlPad pad;
-
-    // Bitmaps
-    private Bitmap bmpTable, bmpTitle, bmpGameOver;
-    private Bitmap bmpRound, bmpSquare, bmpBRound, bmpBSquare;
-    private Bitmap bmpFeature;
-
-    // Card side sprites: s_h_0000-0007 (48x25)
-    private final Bitmap[] cardH = new Bitmap[8];
-
-    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Rect srcRect = new Rect();
-    private final RectF dstRect = new RectF();
-
-    // Tick loop
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private long lastTime;
-    private long debt;
+
+    private float scale = 1f, offsetX, offsetY;
     private boolean running;
+    private RectF pressed;
 
     private final Runnable loop = new Runnable() {
-        @Override
-        public void run() {
-            if (!running) return;
-            long now = SystemClock.uptimeMillis();
-            debt += now - lastTime;
-            lastTime = now;
-            while (debt >= TICK_MS) {
-                debt -= TICK_MS;
-                game.tick();
-            }
+        @Override public void run() {
+            game.tick();
             invalidate();
-            handler.postDelayed(this, TICK_MS / 2);
+            handler.postDelayed(this, TICK_MS);
         }
     };
 
-    MuddleGameView(Context ctx) {
-        super(ctx);
-        setFocusable(true);
-        audio = new GameAudio(ctx, "muddle");
-        pad = new ControlPad(this);
-
+    MuddleGameView(Context context) {
+        super(context);
+        prefs = context.getSharedPreferences("muddle", Context.MODE_PRIVATE);
+        audio = new GameAudio(context, "muddle");
         game.listener = this;
-        game.levels = name -> {
-            try (InputStream is = ctx.getAssets().open("muddle/lev/" + name + ".bin")) {
-                byte[] buf = new byte[is.available()];
-                is.read(buf);
-                return buf;
-            } catch (IOException e) {
-                return null;
-            }
-        };
+        game.levels   = this;
+        game.difficulty = prefs.getInt("difficulty", Game.TRAINING);
+        game.startLevel = prefs.getInt("startLevel", 1);
 
-        loadBitmaps(ctx);
+        pad = new ControlPad();
+        pad.addArrows(460, 300, 56, true);
+        pad.add(KeyEvent.KEYCODE_SPACE, 350, 328, 68, 28, "Move");
+        pad.add(KeyEvent.KEYCODE_TAB,   350, 360, 68, 28, "Knock");
 
-        textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(18);
-        textPaint.setTextAlign(Paint.Align.CENTER);
+        tp.setTextSize(14);
+        tp.setColor(Color.WHITE);
+        tp.setTextAlign(Paint.Align.CENTER);
     }
 
-    private void loadBitmaps(Context ctx) {
-        bmpTable    = loadImg(ctx, "tablebmp");
-        bmpTitle    = loadImg(ctx, "titlebmp");
-        bmpGameOver = loadImg(ctx, "gameoverbmp");
-        bmpRound    = loadImg(ctx, "roundcardspr");
-        bmpSquare   = loadImg(ctx, "squarecardspr");
-        bmpBRound   = loadImg(ctx, "broundcardspr");
-        bmpBSquare  = loadImg(ctx, "bsquarecardspr");
-        bmpFeature  = loadImg(ctx, "featurespr");
-        for (int i = 0; i < 8; i++) {
-            cardH[i] = loadImg(ctx, String.format("s_h_%04d", i));
-        }
+    // ---- lifecycle ----------------------------------------------------------------------------
+
+    void onHostResume() {
+        if (!running) { running = true; handler.post(loop); }
+        if (audio.musicOn) { audio.startMusic("MUDMUSIC"); audio.resumeMusic(); }
     }
 
-    private Bitmap loadImg(Context ctx, String name) {
-        try (InputStream is = ctx.getAssets().open("muddle/img/" + name + ".png")) {
-            return BitmapFactory.decodeStream(is);
+    void onHostPause() {
+        if (game.state == Game.State.PLAYING) game.state = Game.State.PAUSED;
+        audio.pauseMusic();
+        running = false;
+        handler.removeCallbacks(loop);
+    }
+
+    void release() {
+        handler.removeCallbacksAndMessages(null);
+        audio.release();
+    }
+
+    // ---- Game.LevelSource ---------------------------------------------------------------------
+
+    @Override
+    public byte[] load(String name) {
+        try (InputStream in = getContext().getAssets().open("muddle/data/" + name + ".bin")) {
+            byte[] buf = new byte[4096];
+            int got = 0, n;
+            while ((n = in.read(buf, got, buf.length - got)) > 0) got += n;
+            byte[] out = new byte[got];
+            System.arraycopy(buf, 0, out, 0, got);
+            return out;
         } catch (IOException e) {
             return null;
         }
     }
 
-    // ---- layout ----
+    // ---- Game.Listener ------------------------------------------------------------------------
 
-    @Override
-    protected void onSizeChanged(int w, int h, int oldW, int oldH) {
-        scale = Math.min(w / (float) W, h / (float) H);
-        ox = (w - W * scale) / 2f;
-        oy = (h - H * scale) / 2f;
-
-        // Control pad: arrow cluster at bottom-left, SPACE + TAB buttons nearby
-        float padX = 2, padY = H - 3 * KEY - 2;
-        pad.addArrows(padX, padY, KEY, true);
-        pad.add(ControlPad.SPACE, padX + 3 * KEY + 4, padY + KEY, KEY * 1.5f, KEY, "Move");
-        pad.add(ControlPad.TAB,   padX + 3 * KEY + 4, padY, KEY * 1.5f, KEY, "Knock");
+    @Override public void sound(String name) { audio.play(name); }
+    @Override public void tip(int kind) { /* no overlay for now */ }
+    @Override public void gameOver(int score) {
+        int best = prefs.getInt("best", 0);
+        if (score > best) prefs.edit().putInt("best", score).apply();
     }
 
-    // ---- drawing ----
+    // ---- layout -------------------------------------------------------------------------------
+
+    @Override
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        scale = Math.min(w / (float) W, h / (float) H);
+        offsetX = (w - W * scale) / 2f;
+        offsetY = (h - H * scale) / 2f;
+    }
+
+    // ---- drawing ------------------------------------------------------------------------------
 
     @Override
     protected void onDraw(Canvas canvas) {
-        canvas.drawColor(Color.BLACK);
+        canvas.drawColor(0xFF1A1200);
         canvas.save();
-        canvas.translate(ox, oy);
+        canvas.translate(offsetX, offsetY);
         canvas.scale(scale, scale);
 
-        if (game.state == Game.State.TITLE && bmpTitle != null) {
-            canvas.drawBitmap(bmpTitle, 0, 0, paint);
-        } else if (game.state == Game.State.OVER && bmpGameOver != null) {
-            canvas.drawBitmap(bmpGameOver, 0, 0, paint);
-        } else {
-            drawTable(canvas);
+        switch (game.state) {
+            case TITLE:
+                drawCenteredText(canvas, "Muddled Casino", W / 2f, H / 2f - 20);
+                drawCenteredText(canvas, "Tap Play to start", W / 2f, H / 2f + 10);
+                break;
+            case OVER:
+                drawBoard(canvas);
+                drawImg(canvas, "gameoverbmp", (W - 200) / 2f, 120);
+                break;
+            default:
+                drawBoard(canvas);
+                break;
         }
+
         drawButtonBar(canvas);
-        pad.draw(canvas);
         canvas.restore();
     }
 
-    private void drawTable(Canvas canvas) {
-        if (bmpTable != null) canvas.drawBitmap(bmpTable, 0, 0, paint);
+    private void drawBoard(Canvas canvas) {
+        // Board background
+        fill.setColor(0xFF2A1E06);
+        canvas.drawRect(BOARD_OX - 2, BOARD_OY - 2,
+                BOARD_OX + Game.COLS * CELL_W + 2, BOARD_OY + Game.ROWS * CELL_H + 2, fill);
 
-        // Board cells: row 0 is bottom, row 9 is top
-        for (int r = 0; r < Game.ROWS; r++) {
-            int vy = BY + (Game.ROWS - 1 - r) * CELL;
-            for (int c = 0; c < Game.COLS; c++) {
-                int vx = BX + c * CELL;
-                int v = game.board[r][c];
-                if (v == Game.EMPTY) continue;
-                if (Game.isCard(v)) {
-                    drawCard(canvas, v, game.moveFrame(r, c), vx, vy);
-                } else if (v >= Game.JOKER && v <= Game.DICE) {
-                    drawFeature(canvas, v, vx, vy);
-                }
+        // Cells — row 0 = bottom of original, draw top-down so r=ROWS-1 at y=BOARD_OY
+        for (int row = 0; row < Game.ROWS; row++) {
+            int drawRow = Game.ROWS - 1 - row; // flip: row 0 is at the bottom
+            for (int col = 0; col < Game.COLS; col++) {
+                int v = game.board[row][col];
+                float cx = BOARD_OX + col * CELL_W;
+                float cy = BOARD_OY + drawRow * CELL_H;
+                drawCell(canvas, v, cx, cy, row, col);
             }
         }
 
-        drawOrderStrip(canvas);
-        drawHud(canvas);
+        // Exit marker (right of col 13, row 0 = bottom draw row = ROWS-1)
+        fill.setColor(0xFFFFD700);
+        float ey = BOARD_OY + (Game.ROWS - 1) * CELL_H;
+        canvas.drawRect(BOARD_OX + Game.COLS * CELL_W, ey, BOARD_OX + Game.COLS * CELL_W + 8, ey + CELL_H, fill);
+
+        // HUD
+        tp.setTextSize(12);
+        tp.setTextAlign(Paint.Align.LEFT);
+        tp.setColor(Color.WHITE);
+        canvas.drawText("Score: " + game.score, 8, 14, tp);
+        canvas.drawText("Lvl " + game.level + "  Dir:" + game.dir, 180, 14, tp);
+        canvas.drawText("P:" + game.playerCoins + " C:" + game.casinoCoins, 380, 14, tp);
+        String next = game.order[0] > 0 ? ("Next: " + CARD_LABEL[game.order[0]]) : "Done!";
+        canvas.drawText(next, 8, 28, tp);
+        if (game.betting) canvas.drawText("Set bet before moving", 180, 28, tp);
+
+        // Group direction arrows
+        drawDirectionHud(canvas);
+
+        // ControlPad
+        pad.draw(canvas);
+
+        if (game.state == Game.State.PAUSED) drawCenteredText(canvas, "Paused", W / 2f, H / 2f - 40);
     }
 
-    private void drawCard(Canvas canvas, int v, int moveFrame, int vx, int vy) {
-        int cardIdx = v - 1;  // 0-7
-        boolean round = (v <= 4);
-        Bitmap sh = cardH[cardIdx];
-        if (sh != null) {
-            // s_h sprites are 48×25; draw into the CELL×CELL area
-            dstRect.set(vx, vy + 5, vx + CELL, vy + CELL);
-            if (moveFrame > 0) {
-                paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(
-                        highlightMatrix(moveFrame)));
-            }
-            canvas.drawBitmap(sh, null, dstRect, paint);
-            paint.setColorFilter(null);
+    private void drawCell(Canvas canvas, int v, float cx, float cy, int row, int col) {
+        if (v == Game.EMPTY) {
+            fill.setColor(0xFF1A0E00);
+            canvas.drawRect(cx + 1, cy + 1, cx + CELL_W - 1, cy + CELL_H - 1, fill);
+            return;
+        }
+        // Choose cell background
+        int bg;
+        if (Game.isCard(v)) {
+            int mf = game.moveFrame(row, col);
+            boolean blink = game.blinkBold() && game.order[0] == v;
+            bg = blink ? 0xFFFFFFCC : (mf > 0 ? 0xFFD0F0D0 : 0xFFF5E0C0);
         } else {
-            // Fallback: colored rect
-            int[] CARD_COLORS = {
-                Color.rgb(255, 240, 200), Color.rgb(200, 120, 80),
-                Color.rgb(80, 160, 255), Color.rgb(160, 80, 200),
-                Color.rgb(100, 200, 100), Color.rgb(255, 200, 60),
-                Color.rgb(255, 80, 80), Color.rgb(180, 180, 180)
-            };
-            paint.setColor(CARD_COLORS[cardIdx]);
-            paint.setStyle(Paint.Style.FILL);
-            canvas.drawRect(vx, vy, vx + CELL, vy + CELL, paint);
-            paint.setColor(Color.BLACK);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(1f);
-            canvas.drawRect(vx, vy, vx + CELL, vy + CELL, paint);
-            textPaint.setTextSize(14);
-            textPaint.setColor(Color.BLACK);
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText(String.valueOf(v), vx + CELL / 2f, vy + CELL / 2f + 5, textPaint);
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextAlign(Paint.Align.CENTER);
-        }
-    }
-
-    private static float[] highlightMatrix(int frame) {
-        // Simple tint matrix based on group frame (1-4)
-        float r = frame == 1 || frame == 4 ? 1.4f : 1f;
-        float g = frame == 2 || frame == 3 ? 1.4f : 1f;
-        float b = frame == 1 || frame == 2 ? 1.4f : 1f;
-        return new float[]{
-                r,0,0,0,0,  0,g,0,0,0,  0,0,b,0,0,  0,0,0,1,0
-        };
-    }
-
-    private void drawFeature(Canvas canvas, int v, int vx, int vy) {
-        int fi = v - Game.JOKER;  // JOKER=0, HOLE=1, BUMPER=2, DICE=3
-        if (bmpFeature != null) {
-            srcRect.set(fi * FEAT_FW, 0, fi * FEAT_FW + FEAT_FW, FEAT_FH);
-            dstRect.set(vx, vy, vx + CELL, vy + CELL);
-            canvas.drawBitmap(bmpFeature, srcRect, dstRect, paint);
-        } else {
-            int[] FEAT_COLORS = {Color.YELLOW, Color.BLACK, Color.RED, Color.GREEN};
-            paint.setColor(FEAT_COLORS[fi]);
-            paint.setStyle(Paint.Style.FILL);
-            canvas.drawRect(vx, vy, vx + CELL, vy + CELL, paint);
-        }
-    }
-
-    private void drawOrderStrip(Canvas canvas) {
-        // Order indicator strip: cards yet to exit, shown at right side of table
-        int stripX = BX + Game.COLS * CELL + 4;
-        int stripY = BY;
-        for (int i = 0; i < Game.CARDS; i++) {
-            int v = game.order[i];
-            if (v == 0) break;
-            int cardIdx = v - 1;
-            boolean blink = (i == 0 && game.blinkBold());
-            Bitmap sh = cardH[cardIdx];
-            int cy = stripY + i * 26;
-            if (sh != null) {
-                paint.setAlpha(blink ? 255 : 160);
-                dstRect.set(stripX, cy, stripX + 46, cy + 22);
-                canvas.drawBitmap(sh, null, dstRect, paint);
-                paint.setAlpha(255);
-            } else {
-                paint.setColor(blink ? Color.YELLOW : Color.WHITE);
-                paint.setStyle(Paint.Style.FILL);
-                canvas.drawRect(stripX, cy, stripX + 20, cy + 20, paint);
-                textPaint.setTextSize(12);
-                textPaint.setColor(Color.BLACK);
-                canvas.drawText(String.valueOf(v), stripX + 10, cy + 14, textPaint);
-                textPaint.setColor(Color.WHITE);
+            switch (v) {
+                case Game.JOKER:  bg = 0xFF80C080; break;
+                case Game.HOLE:   bg = 0xFF101010; break;
+                case Game.BUMPER: bg = 0xFF6080C0; break;
+                case Game.DICE:   bg = 0xFF9060A0; break;
+                default: bg = 0xFF808080;
             }
         }
+        fill.setColor(bg);
+        canvas.drawRect(cx + 1, cy + 1, cx + CELL_W - 1, cy + CELL_H - 1, fill);
+        fill.setColor(0xFF806040);
+        fill.setStyle(Paint.Style.STROKE);
+        fill.setStrokeWidth(1);
+        canvas.drawRect(cx + 1, cy + 1, cx + CELL_W - 1, cy + CELL_H - 1, fill);
+        fill.setStyle(Paint.Style.FILL);
+
+        tp.setTextAlign(Paint.Align.CENTER);
+        tp.setTextSize(13);
+        if (Game.isCard(v)) {
+            tp.setColor(CARD_COLOR[v]);
+            canvas.drawText(CARD_LABEL[v], cx + CELL_W / 2f, cy + CELL_H / 2f + 5, tp);
+        } else {
+            tp.setColor(0xFFFFFFFF);
+            String label = v == Game.JOKER ? "J" : v == Game.HOLE ? "O" : v == Game.BUMPER ? "B" : "D";
+            canvas.drawText(label, cx + CELL_W / 2f, cy + CELL_H / 2f + 5, tp);
+        }
     }
 
-    private void drawHud(Canvas canvas) {
-        paint.setColor(Color.WHITE);
-        paint.setStyle(Paint.Style.FILL);
-        paint.setTextSize(16);
-        paint.setTextAlign(Paint.Align.LEFT);
-        canvas.drawText("Score: " + game.score, 44, 395, paint);
-        canvas.drawText("P:" + game.playerCoins + " C:" + game.casinoCoins, 200, 395, paint);
-        if (game.betting) {
-            canvas.drawText("BET " + Game.DENOM[game.bet], 360, 395, paint);
+    private void drawDirectionHud(Canvas canvas) {
+        String[] labels = {"","◇","□","◀","▶","▲","▼","◁","▷"};
+        for (int d = 1; d <= 8; d++) {
+            float x = 8 + (d - 1) * 32f;
+            float y = 38;
+            fill.setColor(game.dir == d ? 0xFF60A060 : 0xFF304030);
+            canvas.drawRoundRect(x, y - 12, x + 28, y + 4, 4, 4, fill);
+            tp.setColor(Color.WHITE);
+            tp.setTextSize(11);
+            tp.setTextAlign(Paint.Align.CENTER);
+            canvas.drawText(d + "", x + 14, y, tp);
         }
-        canvas.drawText("Lv " + game.level, 500, 395, paint);
     }
 
     private void drawButtonBar(Canvas canvas) {
-        paint.setColor(Color.rgb(30, 30, 60));
-        paint.setStyle(Paint.Style.FILL);
-        canvas.drawRect(0, BAR_Y - 4, W, TABLE_H + BAR_H + 8, paint);
-
-        drawBtn(canvas, BTN_NEW,   "New");
+        fill.setColor(0xFF1A1200);
+        canvas.drawRect(0, BAR_Y - 2, W, H, fill);
+        String play = game.state == Game.State.PLAYING ? "Pause" : "Play";
+        drawBtn(canvas, BTN_PLAY, play);
+        drawBtn(canvas, BTN_NEW, "New");
         drawBtn(canvas, BTN_RESET, "Reset");
-        drawBtn(canvas, BTN_BET1,  "1¢");
-        drawBtn(canvas, BTN_BET2,  "5¢");
-        drawBtn(canvas, BTN_BET3,  "10¢");
-        drawBtn(canvas, BTN_BET4,  "25¢");
-        drawBtn(canvas, BTN_EXIT,  "Exit");
+        drawBtn(canvas, BTN_OPTIONS, "Options");
+        drawBtn(canvas, BTN_SCORES, "Scores");
+        drawBtn(canvas, BTN_EXIT, "Exit");
     }
 
     private void drawBtn(Canvas canvas, RectF r, String label) {
-        paint.setColor(Color.rgb(60, 60, 100));
-        paint.setStyle(Paint.Style.FILL);
-        canvas.drawRoundRect(r, 6, 6, paint);
-        paint.setColor(Color.rgb(120, 120, 180));
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(1.5f);
-        canvas.drawRoundRect(r, 6, 6, paint);
-        textPaint.setTextSize(15);
-        textPaint.setColor(Color.WHITE);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(label, r.centerX(), r.centerY() + 6, textPaint);
+        fill.setColor(pressed == r ? 0xFF806020 : 0xFF3A2A00);
+        canvas.drawRoundRect(r, 6, 6, fill);
+        tp.setTextSize(12);
+        tp.setColor(Color.WHITE);
+        tp.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText(label, r.centerX(), r.centerY() + 5, tp);
     }
 
-    // ---- touch ----
+    private void drawCenteredText(Canvas canvas, String s, float cx, float cy) {
+        tp.setTextSize(20);
+        tp.setColor(Color.WHITE);
+        tp.setTextAlign(Paint.Align.CENTER);
+        fill.setColor(0xA0000000);
+        float tw = tp.measureText(s);
+        canvas.drawRect(cx - tw / 2 - 10, cy - 18, cx + tw / 2 + 10, cy + 8, fill);
+        canvas.drawText(s, cx, cy, tp);
+    }
+
+    private void drawImg(Canvas canvas, String name, float x, float y) {
+        if (!images.containsKey(name)) {
+            Bitmap b = null;
+            try (InputStream in = getContext().getAssets().open("muddle/img/" + name + ".png")) {
+                b = BitmapFactory.decodeStream(in);
+            } catch (IOException ignored) {}
+            images.put(name, b);
+        }
+        Bitmap b = images.get(name);
+        if (b != null) canvas.drawBitmap(b, x, y, paint);
+    }
+
+    // ---- touch --------------------------------------------------------------------------------
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        if (pad.onTouch(e, ox, oy, scale)) {
-            invalidate();
-            return true;
-        }
+        float lx = (e.getX() - offsetX) / scale;
+        float ly = (e.getY() - offsetY) / scale;
+        pad.onTouch(e, offsetX, offsetY, scale);
+        handlePadKeys();
 
-        float lx = (e.getX() - ox) / scale;
-        float ly = (e.getY() - oy) / scale;
-
-        if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            if (game.state == Game.State.TITLE || game.state == Game.State.OVER) {
-                game.newGame();
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                pressed = btnAt(lx, ly);
+                if (pressed == null && ly < BAR_Y) tapField(lx, ly);
                 invalidate();
                 return true;
-            }
-            if (BTN_EXIT.contains(lx, ly)) {
-                ((MuddleActivity) getContext()).exitToMenu();
-                return true;
-            }
-            if (BTN_NEW.contains(lx, ly)) {
-                confirmNewGame();
-                return true;
-            }
-            if (BTN_RESET.contains(lx, ly)) {
-                game.restartLevel();
+            case MotionEvent.ACTION_UP:
+                if (pressed != null && pressed == btnAt(lx, ly)) {
+                    performClick();
+                    pressBtn(pressed);
+                }
+                pressed = null;
                 invalidate();
                 return true;
-            }
-            if (BTN_BET1.contains(lx, ly)) { game.chooseBet(1); invalidate(); return true; }
-            if (BTN_BET2.contains(lx, ly)) { game.chooseBet(2); invalidate(); return true; }
-            if (BTN_BET3.contains(lx, ly)) { game.chooseBet(3); invalidate(); return true; }
-            if (BTN_BET4.contains(lx, ly)) { game.chooseBet(4); invalidate(); return true; }
+            case MotionEvent.ACTION_CANCEL:
+                pressed = null; invalidate(); return true;
+            default: return true;
         }
-        return true;
     }
 
-    private void confirmNewGame() {
+    @Override public boolean performClick() { return super.performClick(); }
+
+    private void handlePadKeys() {
+        if (game.state != Game.State.PLAYING) return;
+        if (pad.isDown(KeyEvent.KEYCODE_DPAD_UP))    game.arrow(Game.SIDE_UP);
+        if (pad.isDown(KeyEvent.KEYCODE_DPAD_LEFT))  game.arrow(Game.SIDE_LEFT);
+        if (pad.isDown(KeyEvent.KEYCODE_DPAD_RIGHT)) game.arrow(Game.SIDE_RIGHT);
+        if (pad.isDown(KeyEvent.KEYCODE_DPAD_DOWN))  game.arrow(Game.SIDE_DOWN);
+        if (pad.isDown(KeyEvent.KEYCODE_SPACE)) game.move(false);
+        if (pad.isDown(KeyEvent.KEYCODE_TAB))   game.move(true);
+    }
+
+    private void tapField(float lx, float ly) {
+        // Tap direction HUD boxes to select group directly
+        for (int d = 1; d <= 8; d++) {
+            float x = 8 + (d - 1) * 32f;
+            if (lx >= x && lx <= x + 28 && ly >= 26 && ly <= 42) {
+                game.selectGroup(d);
+                return;
+            }
+        }
+        // Tap the board
+        if (game.state == Game.State.TITLE || game.state == Game.State.OVER) {
+            startNewGame();
+            return;
+        }
+        if (lx < BOARD_OX || lx > BOARD_OX + Game.COLS * CELL_W) return;
+        if (ly < BOARD_OY || ly > BOARD_OY + Game.ROWS * CELL_H) return;
+        game.move(false);
+    }
+
+    private RectF btnAt(float x, float y) {
+        for (RectF r : BUTTONS) if (r.contains(x, y)) return r;
+        return null;
+    }
+
+    private void pressBtn(RectF btn) {
+        if (btn == BTN_PLAY) {
+            switch (game.state) {
+                case PLAYING: game.state = Game.State.PAUSED; break;
+                case PAUSED:  game.state = Game.State.PLAYING; break;
+                default:      startNewGame(); break;
+            }
+        } else if (btn == BTN_NEW)     { startNewGame(); }
+        else if (btn == BTN_RESET)     { game.restartLevel(); }
+        else if (btn == BTN_OPTIONS)   { if (game.state == Game.State.PLAYING) game.state = Game.State.PAUSED; showOptions(); }
+        else if (btn == BTN_SCORES)    { showScores(); }
+        else if (btn == BTN_EXIT)      { ((MuddleActivity) getContext()).exitToMenu(); }
+    }
+
+    private void startNewGame() {
+        game.difficulty = prefs.getInt("difficulty", Game.TRAINING);
+        game.startLevel  = prefs.getInt("startLevel", 1);
+        game.newGame();
+    }
+
+    private void showOptions() {
+        String[] modes = {"Training", "Easy", "Medium", "Hard", "Challenge"};
+        int cur = game.difficulty - 1;
         new AlertDialog.Builder(getContext())
-                .setTitle("New Game?")
-                .setMessage("Start a new game?")
-                .setPositiveButton("Yes", (d, w) -> { game.newGame(); invalidate(); })
-                .setNegativeButton("No", null)
-                .show();
+                .setTitle("Difficulty")
+                .setSingleChoiceItems(modes, cur, (d, w) -> {
+                    prefs.edit().putInt("difficulty", w + 1).apply();
+                    game.difficulty = w + 1;
+                })
+                .setPositiveButton("OK", null).show();
     }
 
-    // ---- ControlPad.Listener ----
-
-    @Override
-    public void keyDown(int keyCode) {
-        switch (keyCode) {
-            case ControlPad.LEFT:  game.arrow(Game.SIDE_LEFT);  break;
-            case ControlPad.RIGHT: game.arrow(Game.SIDE_RIGHT); break;
-            case ControlPad.UP:    game.arrow(Game.SIDE_UP);    break;
-            case ControlPad.DOWN:  game.arrow(Game.SIDE_DOWN);  break;
-            case ControlPad.SPACE: game.move(false); break;
-            case ControlPad.TAB:   game.move(true);  break;
-        }
-    }
-
-    @Override
-    public void keyUp(int keyCode) { /* nothing for Muddle */ }
-
-    // ---- hardware keyboard ----
-
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (event.getRepeatCount() == 0) keyDown(keyCode);
-        return true;
-    }
-
-    // ---- Game.Listener ----
-
-    @Override
-    public void sound(String name) {
-        audio.playSound(name);
-    }
-
-    @Override
-    public void tip(int kind) { /* tips shown in HUD area */ }
-
-    @Override
-    public void gameOver(int score) {
-        post(() -> new AlertDialog.Builder(getContext())
-                .setTitle("Game Over")
-                .setMessage("Final score: " + score)
-                .setPositiveButton("New Game", (d, w) -> game.newGame())
-                .setNegativeButton("Exit", (d, w) -> ((MuddleActivity) getContext()).exitToMenu())
-                .show());
-    }
-
-    // ---- lifecycle ----
-
-    void onHostResume() {
-        lastTime = SystemClock.uptimeMillis();
-        debt = 0;
-        running = true;
-        if (game.state == Game.State.TITLE) {
-            game.newGame();
-        }
-        handler.post(loop);
-    }
-
-    void onHostPause() {
-        running = false;
-        handler.removeCallbacks(loop);
-        pad.releaseAll();
-        audio.pause();
-    }
-
-    void release() {
-        running = false;
-        handler.removeCallbacks(loop);
-        audio.release();
-        recycleBitmaps();
-    }
-
-    private void recycleBitmaps() {
-        Bitmap[] all = {bmpTable, bmpTitle, bmpGameOver, bmpRound, bmpSquare,
-                bmpBRound, bmpBSquare, bmpFeature};
-        for (Bitmap b : all) { if (b != null) b.recycle(); }
-        for (int i = 0; i < 8; i++) {
-            if (cardH[i] != null) cardH[i].recycle();
-        }
+    private void showScores() {
+        new AlertDialog.Builder(getContext())
+                .setTitle("Muddled Casino — Best Score")
+                .setMessage("Your best: " + prefs.getInt("best", 0))
+                .setPositiveButton("OK", null).show();
     }
 }
