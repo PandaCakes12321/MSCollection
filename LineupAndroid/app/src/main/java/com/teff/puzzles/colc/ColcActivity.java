@@ -1,15 +1,20 @@
 package com.teff.puzzles.colc;
 
 import android.os.Bundle;
-
 import com.teff.puzzles.common.BaseGameActivity;
-import com.teff.puzzles.common.ComingSoon;
 
-/** Color Collision - not converted yet. */
 public class ColcActivity extends BaseGameActivity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    private ColcGameView view;
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ComingSoon.show(this, "Color Collision");
+        view = new ColcGameView(this);
+        setContentView(view);
     }
+
+    ColcGameView gameView() { return view; }
+
+    @Override protected void onResume()  { super.onResume();  view.onHostResume(); }
+    @Override protected void onPause()   { view.onHostPause(); super.onPause(); }
+    @Override protected void onDestroy() { view.release();    super.onDestroy(); }
 }
